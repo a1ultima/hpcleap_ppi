@@ -187,7 +187,6 @@ def prepare_interaction_detection_inputs(protein_to_pdb_anopheles,protein_to_pdb
 
 	return pdb_structures, pdb_structures_query, protein_to_pdb
 
-
 def query_iPfam( pdb_structures_query ):
 
 	#
@@ -295,31 +294,6 @@ def query_iPfam( pdb_structures_query ):
 
 	return pdb_to_interactions, interaction_to_url
 
-#
-# Main
-#
-
-protein_to_pdb_anopheles = get_protein_to_pdb_dict("Anopheles gambiae","./data/uniProt_structures_anopheles_gambiae.tsv")
-
-protein_to_pdb_plasmodium = get_protein_to_pdb_dict("Plasmodium falciparum","./data/uniProt_structures_plasmodium_falciparum.tsv")
-
-#
-#
-#
-
-pdb_structures, pdb_structures_query, protein_to_pdb = prepare_interaction_detection_inputs(protein_to_pdb_anopheles,protein_to_pdb_plasmodium)
-
-# # save interactions data
-# pickle.dump( pdb_to_interactions, open( "./data/pdb_to_interactions.p", "wb" ) )
-# pickle.dump( interaction_to_url,  open( "./data/interaction_to_url.p", "wb" ) )
-
-# else:
-# 	pdb_to_interactions = pickle.load(open('./data/pdb_to_interactions.p',"r"))
-# 	interaction_to_url 	= pickle.load(open('./data/interaction_to_url.p',"r"))
-
-pdb_to_interactions, interaction_to_url = query_iPfam( pdb_structures_query )
-
-
 def predict_pdb_to_pdb_interactions(pdb_structures):
 
 	""" Determine which pdb structures might interact, by the interacting sub-domains shared between pdb structures
@@ -347,11 +321,7 @@ def predict_pdb_to_pdb_interactions(pdb_structures):
 
 	return pdb_to_pdb_interactions
 
-print "determining which pdb structures might interact..."
-predict_pdb_to_pdb_interactions(pdb_structures)
-
-
-def predict_protein_to_protein_interactions(protein_to_pdb):
+def predict_protein_to_protein_interactions(protein_to_pdb,pdb_to_pdb_interactions):
 
 	""" Determine which proteins might interact, based on the observation that two proteins share pfam domains shown to interact according to ipfam.
 
@@ -379,59 +349,106 @@ def predict_protein_to_protein_interactions(protein_to_pdb):
 
 	return protein_to_protein_interactions
 
+def write_outputs():
+
+	""" Write outputs
+
+	"""
+
+	#
+	# Write protein interactors to files
+	# 
+
+	fo = open("../data/protein_to_protein_interactions.tsv",'w')
+
+	fo.write("Protein pairs that have PDB structures shown to previously interact with one another in iPfam:")
+
+	fo.write("Protein A\tProtein B\n")
+
+	for p1,p2 in protein_to_protein_interactions:
+		fo.write(p1+"\t"+p2+"\n")
+
+	fo.close()
+
+	#
+	# Write other data to files
+	#
+	print("writing data to files...")
+
+	fo = open("../data/pdb_to_interactions.tsv","w")
+
+	fo.write("PDB structures and their interactions, shown by pairwise pfam ids:\nInteractor A\tInteractor B\n")
+
+	fo.write("PDB Structure\tPfam interactor A\tPfam interactor B\n")
+
+	for pdb in pdb_to_interactions.keys():
+
+		for interaction in pdb_to_interactions[pdb]:
+				a,b = interaction 
+				fo.write(pdb+"\t"+a+"\t"+b+"\n")
+
+	fo.close()
+
+	#
+	# URLs to interactions
+	#
+	fo = open("../data/interaction_to_url.tsv","w")
+
+	fo.write("Pfam interactions observed in ./pdb_to_interactions.tsv, and their URLs:\n")
+
+	for interaction in interaction_to_url.keys():
+
+		a,b = interaction
+
+		url = interaction_to_url[interaction]
+
+		fo.write(a+"\t"+b+"\t"+url+"\n")
+
+	fo.close()
+
+########
+# Main #
+########
+
+#
+# Parse in UniProt search results
+#
+protein_to_pdb_anopheles 	= get_protein_to_pdb_dict("Anopheles gambiae","../data/uniProt_structures_anopheles_gambiae.tsv")
+protein_to_pdb_plasmodium 	= get_protein_to_pdb_dict("Plasmodium falciparum","../data/uniProt_structures_plasmodium_falciparum.tsv")
+
+#
+# Prepare data
+#
+pdb_structures, pdb_structures_query, protein_to_pdb = prepare_interaction_detection_inputs(protein_to_pdb_anopheles,protein_to_pdb_plasmodium)
+
+#
+# Search iPfam for interactions between PDB structures
+#
+if os.path.exists("../data/cache/pdb_to_interactions.p"):
+	print "iPfam results cached, loading..."
+	pdb_to_interactions = pickle.load(open('../data/cache/pdb_to_interactions.p',"r"))
+	interaction_to_url 	= pickle.load(open('../data/cache/interaction_to_url.p',"r"))
+else:
+	print "Generating iPfam results..."
+	# determine interacting pFam subdomains from PDB structures
+	pdb_to_interactions, interaction_to_url = query_iPfam( pdb_structures_query )
+	# save interactions data
+	pickle.dump( pdb_to_interactions, open( "../data/cache/pdb_to_interactions.p", "wb" ) )
+	pickle.dump( interaction_to_url,  open( "../data/cache/interaction_to_url.p", "wb" ) )
+
+#
+# Determine which PDB structures are found to interact in iPfam
+#
+print "determining which pdb structures might interact..."
+pdb_to_pdb_interactions = predict_pdb_to_pdb_interactions(pdb_structures)
+
+#
+# Determine which Proteins are found to interact <= those that contain PDB interactions
+#
 print "determining which proteins might interact..."
-protein_to_protein_interactions = predict_protein_to_protein_interactions(protein_to_pdb)
+protein_to_protein_interactions = predict_protein_to_protein_interactions(protein_to_pdb,pdb_to_pdb_interactions)
+
+print "writing data to file..."
+write_outputs()
 
 
-
-#
-# Write protein interactors to files
-# 
-
-fo = open("./data/protein_to_protein_interactions.tsv",'w')
-
-fo.write("Protein pairs that have PDB structures shown to previously interact with one another in iPfam:")
-
-fo.write("Protein A\tProtein B\n")
-
-for p1,p2 in protein_to_protein_interactions:
-	fo.write(p1+"\t"+p2+"\n")
-
-fo.close()
-
-
-#
-# Write other data to files
-#
-print("writing data to files...")
-
-fo = open("./data/pdb_to_interactions.tsv","w")
-
-fo.write("PDB structures and their interactions, shown by pairwise pfam ids:\nInteractor A\tInteractor B\n")
-
-fo.write("PDB Structure\tPfam interactor A\tPfam interactor B\n")
-
-for pdb in pdb_to_interactions.keys():
-
-	for interaction in pdb_to_interactions[pdb]:
-			a,b = interaction 
-			fo.write(pdb+"\t"+a+"\t"+b+"\n")
-
-fo.close()
-
-#
-# URLs to interactions
-#
-fo = open("./data/interaction_to_url.tsv","w")
-
-fo.write("Pfam interactions observed in ./pdb_to_interactions.tsv, and their URLs:\n")
-
-for interaction in interaction_to_url.keys():
-
-	a,b = interaction
-
-	url = interaction_to_url[interaction]
-
-	fo.write(a+"\t"+b+"\t"+url+"\n")
-
-fo.close()
