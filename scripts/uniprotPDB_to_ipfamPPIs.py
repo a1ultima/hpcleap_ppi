@@ -356,6 +356,24 @@ def write_outputs():
 	"""
 
 	#
+	# Write protein IDs mapped to their PDB structures
+	#
+
+	fo = open("../data/protein_to_pdb.tsv",'w')
+
+	fo.write("Protein IDs mapped to their PDB structures:")
+
+	fo.write("Protein (UniProt)\tPDB Structures -->\n")
+
+	for protein in protein_to_pdb.keys():
+		
+		pdb_structures = protein_to_pdb[protein]
+		
+		fo.write(protein+"\t".join(pdb_structures)+"\n")
+
+	fo.close()
+
+	#
 	# Write protein interactors to files
 	# 
 
@@ -405,6 +423,9 @@ def write_outputs():
 		fo.write(a+"\t"+b+"\t"+url+"\n")
 
 	fo.close()
+
+
+
 
 ########
 # Main #
