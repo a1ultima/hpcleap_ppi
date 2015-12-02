@@ -113,8 +113,6 @@ def get_protein_to_pdb_dict(species,uniprot_search_file):
 
 		if (organism.lower() == species.lower()) and (";" in pdb):
 
-			#print "pdb structure found: "+pdb+" ("+organism+")"
-
 			pdbs = pdb.split(";")
 
 			if "" in pdbs:
@@ -369,7 +367,7 @@ def write_outputs():
 		
 		pdb_structures = protein_to_pdb[protein]
 		
-		fo.write(protein+"\t".join(pdb_structures)+"\n")
+		fo.write(protein+"\t"+"\t".join(pdb_structures)+"\n")
 
 	fo.close()
 
