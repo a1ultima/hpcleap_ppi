@@ -235,7 +235,9 @@ if not os.path.exists("../../data/obp_output"):
 
 fo = open("../../data/obp_output/iPfam_protein_to_ligands.txt","w")
 
-headers = "Protein (UniProt)\t"+"\t".join(["Ligand "+str(i) for i in range(0,11)])+"\n"
+headers = "UniProt\tGeneId\t"+"\t".join(["Ligand "+str(i) for i in range(0,11)])+"\n"
+
+
 
 fo.write(headers)
 
@@ -243,7 +245,9 @@ for protein in protein_to_ligands.keys():
 
 	ligands = protein_to_ligands[protein]
 
-	fo.write(protein+"\t"+"\t".join(ligands)+"\n")
+	geneid = uniprot_to_geneid[protein]
+
+	fo.write(protein+"\t"+geneid+"\t"+"\t".join(ligands)+"\n")
 
 fo.close()
 
