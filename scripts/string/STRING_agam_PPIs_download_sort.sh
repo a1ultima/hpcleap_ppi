@@ -1,7 +1,7 @@
 
 # Download PPIs from STRING, pertaining to Tax id: 7165 (Anopheles gambiae), then sorts by total score outputting to file:  
 
-cd ~/Desktop/
+cd ../data/string_ppis
 
 wget http://string-db.org/newstring_download/protein.links.detailed.v10/7165.protein.links.detailed.v10.txt.gz
 

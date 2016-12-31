@@ -5,6 +5,12 @@
 
 from operator import itemgetter
 import numpy as np
+import matplotlib.pyplot as plt
+import sys 
+import networkx as nx
+
+import time
+
 import pdb
 
 #
@@ -35,7 +41,7 @@ def string_parser( fi_name ):
             break
 
         if "protein1" in line:
-            #headers = line # @ANDY:headers may be useful in future // splices away the header line, thus #data_rows = #file_rows - 1 from @fi
+            headers = line.rstrip().split(" ") # @ANDY:headers may be useful in future // splices away the header line, thus #data_rows = #file_rows - 1 from @fi
             continue
 
         line_split = line.rstrip().split(" ") # e.g. ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
@@ -52,7 +58,7 @@ def string_parser( fi_name ):
         # experimental  = line_split[6]
         # database      = line_split[7]
         # textmining    = line_split[8]
-        # combined_score= float(line_split[9]) # @andy:converting combined_socre field/column of the data file to floats, prior to formatting into np.array() type. For smoother calculations downstream.
+        # combined_score= float(line_split[9]) # @andy:converting combined_score field/column of the data file to floats, prior to formatting into np.array() type. For smoother calculations downstream.
         
         #line_split.pop() # throw away the string format "@combined_score" value... 
         #line_split.append(combined_score) # ...to replace it with the float() version, @DONE:test: histogram looks the same // if the output to data is consistent with the previous version just apending line_split without flaot-converted "combined_score" field
@@ -61,7 +67,7 @@ def string_parser( fi_name ):
 
     fi.close()
 
-    return data 
+    return data, headers 
 
 def gen_human_readable_ppi_summary(ntotal_ppis):
     """ returns the number of rows parsed in by @data <-- @fi (../../data/string_ppis/7165.protein.links.detailed.v10_sorted.txt), as a human readable string of three consecutive digits delimited by commas 
@@ -97,6 +103,137 @@ def gen_human_readable_ppi_summary(ntotal_ppis):
     return ntotal_ppis_readable
 
 
+def plot_histogram( fo_name_suffix, likely_ppis, combined_score_col_all ):
+
+    """ Plots and saves histogram comparing the score distributions between "All PPIs" vs. "Likely PPIs", saving to filepath specified by @hist_fo_path, a modification of @fo_name_suffix
+
+        ARGS:
+
+            fo_name_suffix (str):   @BASHDOWNLOAD outputfile name, recycled to name the histogram plot, for consistency. e.g. ['../../data/string_ppis/7165.protein.links.detailed.v10_sorted',[]], hereby: @@fo_name_suffix
+            likely_ppis (list):     list of rows, each row consisting of three column elements (protein1, protein2, combined_score), see: @TODO
+            combined_score_col_all (numpy_array): vector containing jus the combined_scores of each PPI, comprising the unfiltered "All PPIs" class, see: @TODO
+
+        RETURNS:
+            None
+
+        USAGE:
+            plot_histogram( fo_name_suffix, likely_ppis, combined_score_col_all )
+
+
+    """
+
+    # extending name of histogram plot, to make it clear it is not the output .txt file
+    hist_fo_name_suffix     = fo_name_suffix
+    hist_fo_name_suffix[1]  = "_histogram_likely_vs_all_PPIs.png"
+    hist_fo_path            = "".join(hist_fo_name_suffix)
+
+    # histogram configuration
+    bins = np.linspace(100, 1000, 25) # start bin, end bin, total number of bins
+
+    #
+    # Frequency distribution of scores, compared between "Likely PPIs" (after thresholding) vs. "All PPIs" class sets, hereby:@@FREQ 
+    #
+    likely_ppis_arr           = np.array(likely_ppis)
+    combined_score_col_likely = likely_ppis_arr[1:,2].astype(np.float) 
+
+    #
+    # Comparative histograms, pertaining to: @FREQ comparisons of scores between "likely PPIs" vs. "All PPIs"
+    #
+    plt.hist(combined_score_col_all, bins, alpha=0.5, label='All PPIs')
+    plt.hist(combined_score_col_likely, bins, alpha=0.5, label='Likely PPIs')
+
+    print "\tWriting histogram (.png) file to: \n\t\t"+hist_fo_path
+
+    plt.legend(loc='upper right')
+    plt.title("PPI Scores Histogram")
+    plt.xlabel("STRING PPI Score")
+    plt.ylabel("Frequency")
+    #plt.show()
+    plt.savefig(hist_fo_path)
+    plt.close()
+
+    #return combined_score_col_likely
+
+
+def write_likely_PPIs_to_file( fo_name_suffix, likely_ppis ):
+
+    """ Writes minimal formatted, PPI data after filtering via scoring_threshold, to file.
+
+    ARGS:
+        fo_name_suffix (str):   @BASHDOWNLOAD outputfile name, recycled to name the histogram plot, for consistency. e.g. ['../../data/string_ppis/7165.protein.links.detailed.v10_sorted',[]], hereby: @@fo_name_suffix
+        likely_ppis (list):     list of rows, each row consisting of three column elements (protein1, protein2, combined_score), see: @TODO
+
+    RETURNS:
+        fo_path (str):  modified output file name.
+
+    USAGE:
+        write_likely_PPIs_to_file( fo_name_suffix, likely_ppis )        
+
+    """
+
+    # extend filename consistenly named to @BASHLOADER's output file name, with extension indicating "Likely PPIs" (after filering) data
+    fo_name_suffix[1] = "_likely-PPIs_cutoff_"+str(scoring_threshold)+"_"+scoring_threshold_type
+    fo_path = "".join(fo_name_suffix)
+
+    print "Writing 'Likely PPIs' (filtered) data file to...\n\t"+fo_path+"\n"
+
+    # write to file
+    with open(fo_path,'w') as fo:
+        fo.write("protein1\tprotein2\tcombined_score\n") # column headers
+        for ppi in likely_ppis:
+            fo.write("\t".join(ppi)+"\n") # data_rows
+
+    return fo_path
+
+
+def draw_graph( fo_name_suffix, likely_ppis ): 
+
+    """ Plots a network representation of PPIs given a list, in the format of: see: "likley_ppis"
+        
+        ARGS:
+            fo_name_suffix (str):   @BASHDOWNLOAD outputfile name, recycled to name the histogram plot, for consistency. e.g. ['../../data/string_ppis/7165.protein.links.detailed.v10_sorted',[]], hereby: @@fo_name_suffix
+            likely_ppis (list):     list of rows, each row consisting of three column elements (protein1, protein2, combined_score), see: @TODO
+
+        RETURNS:
+            None
+
+        USAGE:
+            draw_graph( fo_name_suffix, likely_ppis )            
+
+    """
+
+    # extend filename consistenly named to @BASHLOADER's output file name, with extension indicating "Likely PPIs" (after filering) data.
+    graph_fo_name_suffix = fo_name_suffix
+    graph_fo_name_suffix[1] = "_likely-PPIs_network_"+str(scoring_threshold)+"_"+scoring_threshold_type+".png"
+    graph_fo_path = "".join(graph_fo_name_suffix)
+
+    print "Writing graph/network plot file to:\n\t"+graph_fo_path+"\n"
+
+    # NetworkX graph object
+    ppi_graph = nx.Graph()
+
+    for ppi in likely_ppis:
+
+        p1 = ppi[0] # e.g. '7165.AGAP011298-PA'
+        p2 = ppi[1] # e.g. '7165.AGAP010252-PA'
+        #p1p2_score = ppi[2] # e.g. '999'
+
+        ppi_graph.add_node(p1)
+        ppi_graph.add_node(p1)
+        ppi_graph.add_edge(p1,p2)
+
+    nx.draw(ppi_graph,pos=nx.spring_layout(ppi_graph))
+    #plt.show()
+    plt.title("Spring-board graph representation of threshdold-filtered STRING PPIs")
+    plt.savefig(graph_fo_path)
+
+
+
+#
+# @TESTING:timing efficiency alternatives
+#
+start_time = time.time()  # @time
+
 
 #
 # Instantiation, configuration
@@ -129,7 +266,7 @@ scoring_threshold = 99.5 # e.g. with 99.5, 8722 PPIs are kept (out of 1,958,812)
 
 print "Reading score-sorted PPI (STRING) input file, please be patient..."
 
-data = string_parser( bashDownloader_fo_path )
+data, headers = string_parser( bashDownloader_fo_path )
 
 #
 # Sort by column: "combined score", if not previously sorted by ./STRING_agam_PPIs_download_sort.sh @bashdownloader
@@ -140,11 +277,10 @@ if prev_sorted == False:
 #
 # Completion summary for @string_parser
 #
-
 ntotal_ppis_in = len(data) # e.g. 1958812
 ntotal_ppis_readable_out = gen_human_readable_ppi_summary(ntotal_ppis_in)
 
-print "\tComplete! ... Total umber of STRING PPIs parsed: "+ntotal_ppis_readable_out
+print "\tTotal number of STRING PPIs parsed (before filtering): "+ntotal_ppis_readable_out
 
 #
 # Return top N-scoring PPIs, specified by: ppi_acceptance_threshold
@@ -152,7 +288,7 @@ print "\tComplete! ... Total umber of STRING PPIs parsed: "+ntotal_ppis_readable
 
 # @TODO:turn into function {{ ...
 
-print "Determining most likely PPI candidates..."
+print "Determining most 'Likely PPI' candidates (score threshold filtering)..."
 
 data_arr = np.array(data)
 
@@ -171,6 +307,8 @@ if scoring_threshold_type == "percentile":
     # alternative 1. {{ Traverse non-numpy vanilla python list (Slower?) @TODO test <--
 
     likely_ppis = [[data_row[0],data_row[1],data_row[-1]] for data_row in data if (float(data_row[9])>p_cutoff)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+
+    # @TODO:complete file writing and threshold-filtering steps in the same iteration (instead of separateley later)
 
     # }} 1 alternative 2. {{ Traverse numpy array (Faster?) @TODO: test <---
 
@@ -196,52 +334,34 @@ elif scoring_threshold_type == "absolute":
 # @DONE:code redundancy // factored out
 n_likely_ppis = len(likely_ppis)
 n_likely_ppis_readable = gen_human_readable_ppi_summary(n_likely_ppis)
-print "\t\t\tNo. of most likely PPIs detected: "+n_likely_ppis_readable+" ("+str((float(len(likely_ppis))/ntotal_ppis_in)*100)+"%"+" of total input PPIs!)"
+print "\t\t\tNo. of most 'Likely PPIs' detected: "+n_likely_ppis_readable+" ("+str((float(len(likely_ppis))/ntotal_ppis_in)*100)+"%"+" of total input PPIs)"
 
 #  }} ... @TODO:turn into function 
 
+### 
+### Consistent handle for downstream output file names, to @BASHLOADER's outputfile names
+### 
+fo_name_suffix = bashDownloader_fo_path.split(".txt")
 
+###
+### Plot histogram of score distributions (likely vs. all) + network visualisation of likely PPIs
+###
+print "Comparing score distributions between 'likely PPIs' (filtered) vs. 'All PPIs' (raw input) class sets..."
+plot_histogram( fo_name_suffix, likely_ppis, combined_score_col_all )
+print "Generating netowrk visualisation, of all 'likely PPIs' interactions..."
+draw_graph( fo_name_suffix, likely_ppis )  
+
+### 
+### Writing output to file
+### 
+fo_name_likely_PPIs = write_likely_PPIs_to_file( fo_name_suffix, likely_ppis )        
+
+###
+### End
+###
+print "All jobs complete!"
 
 #
-# Plot histogram of scores
+# @TESTING: time efficiency alternatives
 #
-
-import matplotlib.pyplot as plt
-
-print "Comparing score distributions between 'likely PPIs' vs. 'All PPIs' (raw input) class sets..."
-
-# gaussian_numbers = np.random.randn(1000) # @toy-example, gaussian_numers --> combined_score_col
-# 
-bins = np.linspace(0, 100, 1000)
-
-#
-# Frequency distribution of scores, compared between "Likely PPIs" (after thresholding) vs. "All PPIs" class sets, hereby:@@FREQ 
-#
-likely_ppis_arr           = np.array(likely_ppis)
-combined_score_col_likely = likely_ppis_arr[1:,2].astype(np.float) 
-
-#
-# Comparative histograms, pertaining to: @FREQ comparisons of scores between "likely PPIs" vs. "All PPIs"
-#
-plt.hist(combined_score_col_all, bins, alpha=0.5, label='All PPIs')
-plt.hist(combined_score_col_likely, bins, alpha=0.5, label='Likely PPIs')
-
-plot_fo_path = "../../data/string_ppis/Histogram_compare_likely_vs_all_score-dist.png"
-
-print "\t\tWriting histogram (.png) file to: "+plot_fo_path
-
-plt.legend(loc='upper right')
-plt.title("PPI Scores Histogram")
-plt.xlabel("STRING PPI Score")
-plt.ylabel("Frequency")
-plt.savefig(plot_fo_path)
-
-# OLD {{
-# plt.hist(combined_score_col)
-# plt.hist(likely_ppis)
-
-# plt.show()
-# }} OLD
-
-
-
+print "Elapsed time: "+str(time.time() - start_time)   # @time
