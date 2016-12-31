@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pdb
+import decimal
 
 import difflib
 import numpy as np
@@ -151,8 +152,6 @@ def read_qobp_data(qobp_path):
 
 	fi.close()
 
-	#pdb.set_trace()
-
 	return qobp_ligands
 
 def compare_ligand_sequence(mobp_input,qobp_input,intersection_mobp,m_sort_by="ki"):
@@ -235,7 +234,7 @@ def compare_ligand_sequence(mobp_input,qobp_input,intersection_mobp,m_sort_by="k
 
 	return mobp4_ligands, qob4_ligands, qobp4_sorted_ki_ligands_wrong_spelling
 
-def ladder_plots(obp_id,obp_to_comparison,plot_path,):
+def ladder_plots(obp_id,obp_to_comparison,plot_path):
 
 	""" Plots ligand preference sequences for mOBP and Qaio et al. with ladder plots to show obp_to_comparison
 
@@ -273,6 +272,9 @@ def ladder_plots(obp_id,obp_to_comparison,plot_path,):
 	#
 
 	plt.figure()
+	
+	#x_offset=0.9  # shift the x-axis value of the text on ladderplots of the second (right-hand) axis, so they are not truncated by image
+	#assert -decimal.Decimal(str(x_offset)).as_tuple().exponent==1  # make sure offset is only 1 decimal place, else the rounding (@round) will not behave as expected
 
 	for ligand in ligand_to_coordinate.keys():
 
@@ -280,11 +282,15 @@ def ladder_plots(obp_id,obp_to_comparison,plot_path,):
 
 		y = ligand_to_coordinate[ligand]['qOBP']
 
-		t = np.array([x,y]).T
+		t = np.array([x,y]).transpose()
 
 		x_vals = list(t[0])
 
+		#x_vals[1]=round(x_vals[1]-x_offset,1) # @@round // @ANDY:2016-12-28: shift right-hand y-axis text labels on rungs of the ladder to prevent truncation of text by image size
+
 		y_vals = list(t[1])
+
+		#pdb.set_trace() # @ANDY2016-12-28
 
 		plt.plot(x_vals,y_vals,label=ligand)
 		plt.text(x_vals[1],y_vals[1],ligand)
@@ -294,7 +300,26 @@ def ladder_plots(obp_id,obp_to_comparison,plot_path,):
 
 	#plt.legend(loc="upper right")
 
-	plt.title(obp_id)
+	plt.title(obp_id+" (mOBP vs. Qiao et al.)",y=1.06)
+
+	# @todo: add left-y-axis label (mOBP), and right-y-axis label (Qiao)
+	# @todo: find out what the difference is between Int and ki (for Qiao) and SILE, ki, pki, etc. (mOBP), ki is "dissociation constant"? i.e. effort needed to "unbind" ligand from obp?
+	# @DONE: from Qiao et al. OBP4 has @ki to indole, citronellal, decanal as: 15.3, 13.7, 13.0 respectively, and appear in my ladderplots as indole being higher y-axis than citronellal => strongest ligands at the bottom // determine if high-y-axis means: strongly-binding-ligand or weakly-binding-ligand (i.e. if ligand is high on y-axis does that mean it is the target ligand, or the other way round) for Qiao et al. // @@ki: https://en.wikipedia.org/wiki/Ligand_(biochemistry)#Receptor.2Fligand_binding_affinity
+	# @todo:  // determine if high-y-axis means: strongly-binding-ligand or weakly-binding-ligand (i.e. if ligand is high on y-axis does that mean it is the target ligand, or the other way round) for mOBP
+	# @DONE: mOBP is left // is the left y-axis mOBP or Qiao et al?
+
+	#plt.tight_layout()
+
+	xticks_vec = plt.gca().get_xticks()
+
+	#pdb.set_trace()
+
+	plt.xticks(xticks_vec, ["mOBP","","","","","Qiao et al."])
+
+	plt.ylabel("Rank of ligand binding affinity (by Ki)")
+
+	#plt.xticks([]) # removes xtick labels and tickmarks enirtely
+	plt.gcf().subplots_adjust(right=0.85, top=0.9)  # @ANDY:2016-12-28: create extra whitespace to right of the figure, so that text can fit in the figure
 
 	plt.savefig(plot_path)
 
@@ -452,7 +477,7 @@ intersection_mobp, quSpelling_to_mobpSpelling = generate_ligands_intersection()
 # Plotting venn daigram #
 #########################
 
-plot_venn_ligands("../../data/obp_output/venn_mobp_vs_qaio.png", qu2, mobp2, intersection_mobp)
+#plot_venn_ligands("../../data/obp_output/venn_mobp_vs_qaio.png", qu2, mobp2, intersection_mobp)
 
 #######################
 # Plotting lader plot # @latest
@@ -478,7 +503,7 @@ for m_path, q_path in mq_paths:
 
 	obp_id = m_path[51:53].replace(".","")
 
-	mobpX_ligands, qobpX_ligands, qu_raw = compare_ligand_sequence(m_path,q_path,intersection_mobp,m_sort_by="sile")
+	mobpX_ligands, qobpX_ligands, qu_raw = compare_ligand_sequence(m_path,q_path,intersection_mobp,m_sort_by="ki")
 
 	obp_to_comparison["OBP"+obp_id] = {"mOBP":mobpX_ligands, "qOBP":qobpX_ligands}
 

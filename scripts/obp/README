@@ -1,3 +1,5 @@
 README
 
 These scripts attempt to identify the known ligands that bind to Odorant binding proteins, of the AGAP gene ids (proteins) in ../data/uniProt_structures_anopheles_gambiae.tsv 
+
+Ladder plots comparing ligand-binding profile of OBPs between mOBP vs. Qiao et al.: ./compare_ligands_mobp_vs_qu.py
