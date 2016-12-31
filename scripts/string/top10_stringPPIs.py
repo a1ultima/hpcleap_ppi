@@ -99,24 +99,29 @@ def gen_human_readable_ppi_summary(ntotal_ppis):
 
 
 #
-# Instantiation
+# Instantiation, configuration
 #
 
 data = []
 
 prev_sorted = True
 
-scoring_threshold_type = "percentile" #, hereby @REL, OR, e.g. scoring_threshold_type =  "absolute" @ABS
+bashDownloader_fo_path = "../../data/string_ppis/7165.protein.links.detailed.v10_sorted.txt"
 
-# allternative 1. {{ 
+scoring_threshold_type = "percentile" #, hereby @REL, OR, e.g. scoring_threshold_type = "absolute" @@ABS
 
-#ppi_acceptance_threshold = 9000     # filter PPIs, keeping those classed as "@likely PPIs", by means of an absolute user-specified @scoring_threshold, and @scoring_threshold_type (="absolute"), hereby @@ABS
+# allternative 1. {{  Absolute-score-filter: removes PPIs scoring less than the specified absolute: scoring_threshold, @ABS
 
-# }} 1 alternative 2. {{
-    
-# }}
+# scoring_threshold = 900 # 608 median score, for e.g. for @BASHDOWNLOADER output file: "../../data/string_ppis/7165.protein.links.detailed.v10_sorted.txt", note that 7165 is the tax id for: Anopheles gambiae (as of 2016) # filter PPIs, keeping those classed as "@likely PPIs", by means of an absolute user-specified @scoring_threshold, and @scoring_threshold_type (="absolute"), hereby @@ABS
 
-scoring_threshold = 99.5 # filter PPIs, keeping those classed as "@likely PPIs", by means of a statistical user-specified @scoring_threshold (cutoff). User-specified: N-th percentile cutoff, corresponding to the user-defined scoring_colum, such that PPIs with scores below the percentile_cutoff value are classed as "non-interactions (non-PPIs)", or "unlikely interactions (unlikely-PPIs)", and PPIs whose scores are above percentile_cutoff are classed as, "likley interactions (likely-PPIs)"
+# }} 1 alternative 2. {{ Percentile-score-fileter: removes PPIs scoring less than the specific relative (percentile): scoring_threshold (0.00-to-100.00), where 50.00 is the median
+
+scoring_threshold = 99.5 # e.g. with 99.5, 8722 PPIs are kept (out of 1,958,812); i.e. 99.5-th percentile is used to keep only PPIs scoring higher than the 99.5th score percentile, for "combined_scores" column  
+#scoring_threshold = 99.5 # filter PPIs, keeping those classed as "@likely PPIs", by means of a statistical user-specified @scoring_threshold (cutoff). User-specified: N-th percentile cutoff, corresponding to the user-defined scoring_colum, such that PPIs with scores below the percentile_cutoff value are classed as "non-interactions (non-PPIs)", or "unlikely interactions (unlikely-PPIs)", and PPIs whose scores are above percentile_cutoff are classed as, "likley interactions (likely-PPIs)"
+#@TODO:change, to allow colouring of edges of the STRING network viz. script-based on differnt evidence-type
+
+# }} 2 alternative.
+
 
 #
 # Parse STRING PPI data
@@ -124,7 +129,7 @@ scoring_threshold = 99.5 # filter PPIs, keeping those classed as "@likely PPIs",
 
 print "Reading score-sorted PPI (STRING) input file, please be patient..."
 
-data = string_parser( "../../data/string_ppis/7165.protein.links.detailed.v10_sorted.txt" )
+data = string_parser( bashDownloader_fo_path )
 
 #
 # Sort by column: "combined score", if not previously sorted by ./STRING_agam_PPIs_download_sort.sh @bashdownloader
@@ -145,49 +150,98 @@ print "\tComplete! ... Total umber of STRING PPIs parsed: "+ntotal_ppis_readable
 # Return top N-scoring PPIs, specified by: ppi_acceptance_threshold
 #
 
+# @TODO:turn into function {{ ...
+
 print "Determining most likely PPI candidates..."
 
 data_arr = np.array(data)
 
-combined_score_col = data_arr[1:,-1].astype(np.float)
+combined_score_col_all = data_arr[1:,-1].astype(np.float)
 
 if scoring_threshold_type == "percentile":
 
     print "\t user-specified scoring_threshold_type: "+scoring_threshold_type
     print "\t\tremoving PPIs scoring < "+str(scoring_threshold)+"-th percentile..."
-    # p = np.percentile(combined_score_col, 50) # e.g. np.percentile(a, 50), will return 50th percentile, e.g median, of a numpy array of floats
-    p_cutoff = np.percentile(combined_score_col, scoring_threshold) # e.g. np.percentile(a, scoring_threshold=50), will return 50th percentile, e.g median, of a numpy array of floats
+    # p = np.percentile(combined_score_col_all, 50) # e.g. np.percentile(a, 50), will return 50th percentile, e.g median, of a numpy array of floats
+    p_cutoff = np.percentile(combined_score_col_all, scoring_threshold) # e.g. np.percentile(a, scoring_threshold=50), will return 50th percentile, e.g median, of a numpy array of floats
     # @TODO:test:is using the np.array faster than using the plain list()? 
     # throw away all PPIs with a score < @p_cutoff
 
-    likely_ppis = [(data_row[0],data_row[1]) for data_row in data if (float(data_row[9])>p_cutoff)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+    # @TODO:code-redunancy    
+    # alternative 1. {{ Traverse non-numpy vanilla python list (Slower?) @TODO test <--
 
-    n_likely_ppis = len(likely_ppis)
+    likely_ppis = [[data_row[0],data_row[1],data_row[-1]] for data_row in data if (float(data_row[9])>p_cutoff)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
 
-    n_likely_ppis_readable = gen_human_readable_ppi_summary(n_likely_ppis)
+    # }} 1 alternative 2. {{ Traverse numpy array (Faster?) @TODO: test <---
 
-    print "\t\t\tNo. of most likely PPIs detected: "+n_likely_ppis_readable+" ("+str((float(len(likely_ppis))/ntotal_ppis_in)*100)+"%"+" of total input PPIs!)"
+    #likely_ppis = [[data_row[0],data_row[1],data_row[-1]] for data_row in data_arr if (float(data_row[9])>p_cutoff)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+
+    # }} 2. alternative
 
 elif scoring_threshold_type == "absolute":
 
     print "\t user-specified scoring_threshold_type: "+scoring_threshold_type
     print "\t\tremoving PPIs scoring < "+str(scoring_threshold)+"..."
 
-    likely_ppis = [(data_row[0],data_row[1],data_row[-1]) for data_row in data if (float(data_row[9])>scoring_threshold)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+    # alternative 1. {{ Traverse non-numpy vanilla python list (Slower?) @TODO test <--
+
+    likely_ppis = [[data_row[0],data_row[1],data_row[-1]] for data_row in data if (float(data_row[9])>scoring_threshold)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+
+    # }} 1 alternative 2. {{ Traverse numpy array (Faster?) @TODO: test <---
+
+    # likely_ppis = [[data_row[0],data_row[1],data_row[-1]] for data_row in data_arr if (float(data_row[9])>scoring_threshold)] # e.g. 0, 1 and 9: 1st and 2nd columns, and 10th columns corresponding to "protein1", "protein2", and "combined_score" fields of @BASHDOWNLOADER output file; e.g. data_row = ['7165.AGAP028012-PA','7165.AGAP009539-PA','594','0','0','994','978','805','865','999']
+
+    # }} 2. alternative
+
+# @DONE:code redundancy // factored out
+n_likely_ppis = len(likely_ppis)
+n_likely_ppis_readable = gen_human_readable_ppi_summary(n_likely_ppis)
+print "\t\t\tNo. of most likely PPIs detected: "+n_likely_ppis_readable+" ("+str((float(len(likely_ppis))/ntotal_ppis_in)*100)+"%"+" of total input PPIs!)"
+
+#  }} ... @TODO:turn into function 
 
 
 
-# #
-# # Plot histogram of scores
-# #
+#
+# Plot histogram of scores
+#
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-# # gaussian_numbers = np.random.randn(1000) # @toy-example, gaussian_numers --> combined_score_col
+print "Comparing score distributions between 'likely PPIs' vs. 'All PPIs' (raw input) class sets..."
+
+# gaussian_numbers = np.random.randn(1000) # @toy-example, gaussian_numers --> combined_score_col
+# 
+bins = np.linspace(0, 100, 1000)
+
+#
+# Frequency distribution of scores, compared between "Likely PPIs" (after thresholding) vs. "All PPIs" class sets, hereby:@@FREQ 
+#
+likely_ppis_arr           = np.array(likely_ppis)
+combined_score_col_likely = likely_ppis_arr[1:,2].astype(np.float) 
+
+#
+# Comparative histograms, pertaining to: @FREQ comparisons of scores between "likely PPIs" vs. "All PPIs"
+#
+plt.hist(combined_score_col_all, bins, alpha=0.5, label='All PPIs')
+plt.hist(combined_score_col_likely, bins, alpha=0.5, label='Likely PPIs')
+
+plot_fo_path = "../../data/string_ppis/Histogram_compare_likely_vs_all_score-dist.png"
+
+print "\t\tWriting histogram (.png) file to: "+plot_fo_path
+
+plt.legend(loc='upper right')
+plt.title("PPI Scores Histogram")
+plt.xlabel("STRING PPI Score")
+plt.ylabel("Frequency")
+plt.savefig(plot_fo_path)
+
+# OLD {{
 # plt.hist(combined_score_col)
-# plt.title("PPI Scores Histogram")
-# plt.xlabel("Value")
-# plt.ylabel("Frequency")
+# plt.hist(likely_ppis)
+
 # plt.show()
+# }} OLD
+
 
 
