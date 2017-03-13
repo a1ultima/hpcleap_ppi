@@ -1,7 +1,7 @@
 README
 
-./STRING_agam_PPIs_download_sort.sh 		Downloads An. gambiae PPI predictions and the breakdown of each PPIs scores
+./STRING_agam_PPIs_download_sort.sh 		STEP 1: Downloads An. gambiae PPI predictions and the breakdown of each PPIs scores: ../data/string/* // USAGE: bash ./*sort.sh
 
-./top10_stringPPIs.py 				Sorts string PPIs according to highest combined score goes on top
+./top10_stringPPIs.py 				STEP 2: Sorts string PPIs according to highest combined score goes on top
 
-./netx.py 					Plots the top-scoring PPIs using the amazing NetworkX
+./netx.py 					STEP 3: Plots the top-scoring PPIs using the amazing NetworkX
