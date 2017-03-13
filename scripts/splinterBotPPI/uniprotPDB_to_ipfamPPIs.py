@@ -432,8 +432,8 @@ def write_outputs():
 #
 # Parse in UniProt search results
 #
-protein_to_pdb_anopheles 	= get_protein_to_pdb_dict("Anopheles gambiae","../data/uniProt_structures_anopheles_gambiae.tsv")
-protein_to_pdb_plasmodium 	= get_protein_to_pdb_dict("Plasmodium falciparum","../data/uniProt_structures_plasmodium_falciparum.tsv")
+protein_to_pdb_anopheles 	= get_protein_to_pdb_dict("Anopheles gambiae","../../data/uniProt_structures_anopheles_gambiae.tsv")
+protein_to_pdb_plasmodium 	= get_protein_to_pdb_dict("Plasmodium falciparum","../../data/uniProt_structures_plasmodium_falciparum.tsv")
 
 #
 # Prepare data
@@ -443,17 +443,17 @@ pdb_structures, pdb_structures_query, protein_to_pdb = prepare_interaction_detec
 #
 # Search iPfam for interactions between PDB structures
 #
-if os.path.exists("../data/cache/pdb_to_interactions.p"):
+if os.path.exists("../../data/cache/pdb_to_interactions.p"):
 	print "iPfam results cached, loading..."
-	pdb_to_interactions = pickle.load(open('../data/cache/pdb_to_interactions.p',"r"))
-	interaction_to_url 	= pickle.load(open('../data/cache/interaction_to_url.p',"r"))
+	pdb_to_interactions = pickle.load(open('../../data/cache/pdb_to_interactions.p',"r"))
+	interaction_to_url 	= pickle.load(open('../../data/cache/interaction_to_url.p',"r"))
 else:
 	print "Generating iPfam results..."
 	# determine interacting pFam subdomains from PDB structures
 	pdb_to_interactions, interaction_to_url = query_iPfam( pdb_structures_query )
 	# save interactions data
-	pickle.dump( pdb_to_interactions, open( "../data/cache/pdb_to_interactions.p", "wb" ) )
-	pickle.dump( interaction_to_url,  open( "../data/cache/interaction_to_url.p", "wb" ) )
+	pickle.dump( pdb_to_interactions, open( "../../data/cache/pdb_to_interactions.p", "wb" ) )
+	pickle.dump( interaction_to_url,  open( "../../data/cache/interaction_to_url.p", "wb" ) )
 
 #
 # Determine which PDB structures are found to interact in iPfam
