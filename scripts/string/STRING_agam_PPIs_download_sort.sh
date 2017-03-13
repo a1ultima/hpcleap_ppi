@@ -1,5 +1,5 @@
 
-# Download PPIs from STRING, pertaining to Tax id: 7165 (Anopheles gambiae), then sorts by total score outputting to file:  
+# STEP 1: Download PPIs from STRING, pertaining to Tax id: 7165 (Anopheles gambiae), then sorts by total score outputting to file:  
 
 cd ../data/string_ppis
 
